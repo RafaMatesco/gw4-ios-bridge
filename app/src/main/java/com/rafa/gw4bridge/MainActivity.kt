@@ -223,11 +223,16 @@ class MainActivity : Activity() {
         )
 
         val snap = svc.healthManager.getCurrentSnapshot()
+        val biaLine = snap.latestBodyComposition?.let {
+            "\n⚖️ BIA: ${it.weightKg}kg | ${it.bodyFatPercent}% gord | ${it.skeletalMuscleMassKg}kg músc"
+        } ?: "\n⚖️ BIA: Aguardando medição Samsung Health"
+
         metricsText.text = "👟 ${snap.stepsToday} passos (${snap.distanceKmToday} km)\n" +
             "❤️ ${snap.lastHeartRateBpm} BPM (BLE Live)\n" +
             "🔥 ${snap.activeKcalToday} kcal ativas\n" +
-            "⚡ ${snap.totalKcalToday} kcal totais hoje\n" +
-            "💾 Cofre Offline: ${snap.pendingOfflineDaysCount}d | ${snap.pendingOfflineWorkoutsCount} treinos"
+            "⚡ ${snap.totalKcalToday} kcal totais hoje" +
+            biaLine + "\n" +
+            "💾 Cofre: ${snap.pendingOfflineDaysCount}d | ${snap.pendingOfflineWorkoutsCount} tr | ${snap.pendingOfflineBodyCompCount} BIA"
 
         if (snap.activeWorkoutRunning) {
             val mins = snap.activeWorkoutElapsedSec / 60

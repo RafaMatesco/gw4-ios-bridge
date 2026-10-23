@@ -17,6 +17,7 @@ Combinando um **Cliente GATT ANCS**, um **Servidor GATT de Saúde padrão Blueto
 - 📞 **Controle de Chamadas Recebidas**: Detecta ligações telefônicas, WhatsApp e FaceTime no iPhone e exibe botões no relógio para **Atender** (`ActionIDPositive`) ou **Recusar** (`ActionIDNegative`) diretamente pelo pulso.
 - ❤️ **Transmissão Bluetooth de Saúde em Tempo Real (`0x180D` & `0x1814`)**: Transforma o relógio em um sensor Bluetooth oficial de Frequência Cardíaca (`0x180D` com `Energy Expended` a 1 Hz) e Cadência/Distância (`0x1814`), funcionando 100% offline na rua com apps de treino no iPhone (como **Strava**, **Nike Run Club**, **Fitness**, etc.).
 - 🏃 **Sincronização Automática com o Apple Health (Delta `Δ` + Cofre Offline Multi-Dias)**: Lê os sensores físicos do relógio (`TYPE_STEP_COUNTER` e `TYPE_HEART_RATE`), calcula calorias ativas (MET + BPM) e basais, armazena o histórico de múltiplos dias na memória flash e expõe uma API local (`/health`) que envia apenas o **Delta incremental** (diferença desde a última leitura) para nunca duplicar passos ou calorias no Apple Health.
+- ⚖️ **Sincronização Automática de Composição Corporal (Bioimpedância / BIA)**: Intercepta automaticamente todas as medições de Composição Corporal feitas no app **Samsung Health** do relógio (`BiaSensorData` via `READ_LOGS`) — capturando **Peso (`weightKg`)**, **IMC (`bmi`)**, **% de Gordura Corporal (`bodyFatPercent`)**, **Massa Gorda (`bodyFatMassKg`)**, **Massa Magra / Livre de Gordura (`leanBodyMassKg`)**, **Massa Muscular Esquelética (`skeletalMuscleMassKg` / `skeletalMusclePercent`)**, **Água Corporal (`totalBodyWaterKg`)** e **Taxa Metabólica Basal (`basalMetabolicRateKcal`)** — e enfileira no Cofre Offline para gravar direto no Apple Health sem duplicação.
 
 ---
 
@@ -66,7 +67,10 @@ adb connect <IP_DO_RELOGIO>:<PORTA_PRINCIPAL>
 # 3. Instale o APK no relógio
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 
-# 4. Inicie o aplicativo no relógio
+# 4. Conceda permissão de leitura de logs (para capturar automaticamente a Bioimpedância/BIA do Samsung Health)
+adb shell pm grant com.rafa.gw4bridge android.permission.READ_LOGS
+
+# 5. Inicie o aplicativo no relógio
 adb shell am start -n com.rafa.gw4bridge/.MainActivity
 ```
 
@@ -102,6 +106,14 @@ Para gravar automaticamente seus **Passos do dia a dia**, **Calorias Ativas**, *
 5. **Para registrar Batimentos Cardíacos (BPM)**:
    - Adicione **"Obter Valor do Dicionário"** -> Chave: `heartRateBpm` (em *Conteúdo do URL*).
    - Adicione **"Registrar Amostra de Saúde"** -> Tipo: **Frequência Cardíaca** -> Unidade: `count/min` -> Valor: *Valor do Dicionário*.
+6. **Para registrar Composição Corporal / Bioimpedância (Peso, % de Gordura, Massa Magra e IMC)**:
+   - Adicione **"Obter Valor do Dicionário"** -> Chave: `weightKg` (em *Conteúdo do URL*).
+   - Adicione um bloco **"Se"** (*If*) -> condição: *Valor do Dicionário* (`weightKg`) **é maior que** `0` *(assim ele só grava no Apple Health quando você tiver feito uma medição nova no relógio!)*:
+     - **Peso**: **"Registrar Amostra de Saúde"** -> Tipo: **Peso** -> Unidade: `kg` -> Valor: `weightKg`.
+     - **% de Gordura Corporal**: **"Obter Valor do Dicionário"** (Chave: `bodyFatPercent`) -> **"Registrar Amostra de Saúde"** -> Tipo: **Percentual de Gordura Corporal** -> Unidade: `%` -> Valor: `bodyFatPercent`.
+     - **Massa Corporal Magra**: **"Obter Valor do Dicionário"** (Chave: `leanBodyMassKg`) -> **"Registrar Amostra de Saúde"** -> Tipo: **Massa Corporal Magra** (*Lean Body Mass*) -> Unidade: `kg` -> Valor: `leanBodyMassKg`.
+     - **IMC**: **"Obter Valor do Dicionário"** (Chave: `bmi`) -> **"Registrar Amostra de Saúde"** -> Tipo: **Índice de Massa Corporal** (*BMI*) -> Valor: `bmi`.
+     - *(Opcional)* Todas as medições feitas fora de casa também ficam salvas no array `unsyncedBodyCompositions` com `dateIso`, `skeletalMuscleMassKg`, `skeletalMusclePercent`, `bodyFatMassKg`, `totalBodyWaterKg` e `basalMetabolicRateKcal`.
 
 > 💡 **Sem duplicação de dados**: O relógio calcula e envia nos campos `steps`, `activeEnergyKcal`, `basalEnergyKcal` e `distanceKm` **apenas a diferença nova (Delta `Δ`)** desde a última execução do atalho! Se o atalho rodar 10 vezes seguidas enquanto você estiver parado, ele retornará `0` nas 9 seguintes e nunca duplicará suas calorias ou passos no Apple Health.
 
